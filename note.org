@@ -1,0 +1,13 @@
+#+title: Note
+first run this code until close(server)
+server_r_for_tkinter_app.R
+
+
+
+then on terminal
+python mcrp_app2_this_work.py
+
+this two files are for to see in console
+
+# rfile.R
+# from_p.py

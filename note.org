@@ -1,11 +1,11 @@
 #+title: Note
 first run this code until close(server)
-server_r_for_tkinter_app.R
+R_server_run_this_first.R
 
 
 
 then on terminal
-python mcrp_app2_this_work.py
+python python_gui_app.py
 
 this two files are for to see in console
 

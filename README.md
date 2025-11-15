@@ -1,6 +1,6 @@
 # R-Python Cross-Language Communication App
 
-A GUI application demonstrating real-time data exchange between R and Python using nanonext sockets. This app provides a visual interface to send data between R and Python environments, showcasing seamless cross-language communication for data science workflows.
+A GUI application demonstrating real-time data exchange between R and Python using [nanonext](https://github.com/r-lib/nanonext) sockets. This app provides a visual interface to send data between R and Python environments, showcasing seamless cross-language communication for data science workflows.
 
 <!-- ![App Demo](demo-screenshot.png) -->
 
@@ -53,9 +53,6 @@ install.packages(c("nanonext", "jsonlite"))
 pip install pynng numpy tkinter
 ```
 
-### 2. Download Files
-
-Save the provided R server code as `r_server.R` and the Python GUI code as `enhanced_app.py`.
 
 ## How to Run
 
@@ -64,23 +61,33 @@ Save the provided R server code as `r_server.R` and the Python GUI code as `enha
 Open R console and run:
 
 ```r
+#R_server_run_this_first.R  or copy code below
 library(nanonext)
 library(jsonlite)
 
+# Create server socket
 server <- socket("rep", listen = "tcp://127.0.0.1:5556")
 cat("R server listening on port 5556\n")
 
 while(TRUE) {
   tryCatch({
+    # Receive data
     raw_data <- recv(server, mode = "raw", block = TRUE)
-    
+    cat("Received", length(raw_data), "bytes\n")
+
+    # Check for shutdown signal
     if(length(raw_data) == 1 && raw_data[1] == 255) {
+      cat("Shutdown signal received\n")
       break
     }
-    
+
+    # Process numeric data (8-byte doubles)
     if(length(raw_data) %% 8 == 0 && length(raw_data) >= 8) {
       data <- readBin(raw_data, "double", n = length(raw_data)/8)
-      
+      cat("Converted to numeric:", paste(head(data, 10), collapse = ", "))
+      if(length(data) > 10) cat(" ... (", length(data), "total values)")
+      cat("\n")
+
       result <- list(
         mean = round(mean(data, na.rm = TRUE), 3),
         sd = round(sd(data, na.rm = TRUE), 3),
@@ -88,23 +95,46 @@ while(TRUE) {
         max = round(max(data, na.rm = TRUE), 3),
         length = length(data)
       )
-      
-      json_response <- toJSON(result, auto_unbox = TRUE)
+
+      # Create clean JSON response
+      json_response <- toJSON(result, auto_unbox = TRUE, pretty = FALSE)
+      cat("Sending JSON response:", json_response, "\n")
+
+      # Send as raw bytes
       send(server, json_response, mode = "raw")
-      
+      cat("Response sent successfully\n")
+
     } else {
+      # Handle text commands
       command <- rawToChar(raw_data)
+      cat("Executing R command:", command, "\n")
+
       result <- tryCatch({
-        capture.output(eval(parse(text = command)))
+        # Capture both output and result
+        output <- capture.output({
+          eval_result <- eval(parse(text = command))
+          if(!is.null(eval_result)) print(eval_result)
+        })
+        if(length(output) > 0) {
+          paste(output, collapse = "\n")
+        } else {
+          "Command executed (no output)"
+        }
       }, error = function(e) {
         paste("Error:", e$message)
       })
-      send(server, paste(result, collapse = "\n"), mode = "raw")
+
+      cat("Sending text response:", substr(result, 1, 100), "...\n")
+      send(server, result, mode = "raw")
     }
+
   }, error = function(e) {
-    send(server, paste("Error:", e$message), mode = "raw")
+    cat("Server error:", e$message, "\n")
+    error_msg <- paste("Server error:", e$message)
+    send(server, error_msg, mode = "raw")
   })
 }
+# run until this
 
 close(server)
 ```
@@ -114,7 +144,7 @@ close(server)
 ### Step 2: Start Python GUI (Terminal 2)
 
 ```bash
-python enhanced_app.py
+python python_gui_app.py
 ```
 
 ### Step 3: Connect and Test
@@ -213,4 +243,4 @@ Response sent successfully
 ---
 
 **Built with**: nanonext (R), pynng (Python), tkinter (GUI)  
-**Inspired by**: MCPR framework for cross-language communication
+**Inspired by**: [MCPR](https://github.com/phisanti/MCPR) framework for cross-language communication
